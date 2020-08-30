@@ -101,7 +101,7 @@ namespace {
 		};
 		~scream_player()
 		{
-			std::lock_guard<std::mutex> lock(mutex_);
+			std::lock_guard<std::mutex> lock(buffer_mutex_);
 			if (timer_id != NULL)
 			{
 				timeKillEvent(timer_id);
@@ -127,15 +127,12 @@ namespace {
 		}
 
 		void play() {
-			std::lock_guard<std::mutex> lock(mutex_);
 			playing = true;
 		}
 		void pause() {
-			std::lock_guard<std::mutex> lock(mutex_);
 			playing = false;
 		}
 		void force_play() {
-			std::lock_guard<std::mutex> lock(mutex_);
 			force_play_flag = true;
 		}
 		bool is_progressing() {
@@ -143,17 +140,19 @@ namespace {
 		}
 		void queue(audio_chunk_impl chunk)
 		{
-			std::lock_guard<std::mutex> lock(mutex_);
 			postprocessor->run(chunk, incoming, bitdepth, bitdepth, dither, 1.0f);
-			size_t copy_amount = pfc::min_t(space(), incoming.get_size());
-			size_t endspace = max_size_ - head_;
-			memcpy(buf_.get() + head_, incoming.get_ptr(), pfc::min_t(copy_amount, endspace));
-			if (endspace < copy_amount)
 			{
-				memcpy(buf_.get(), ((BYTE*)incoming.get_ptr()) + endspace, incoming.get_size() - endspace);
+				std::lock_guard<std::mutex> lock(buffer_mutex_);
+				size_t copy_amount = pfc::min_t(space(), incoming.get_size());
+				size_t endspace = max_size_ - head_;
+				memcpy(buf_.get() + head_, incoming.get_ptr(), pfc::min_t(copy_amount, endspace));
+				if (endspace < copy_amount)
+				{
+					memcpy(buf_.get(), ((BYTE*)incoming.get_ptr()) + endspace, incoming.get_size() - endspace);
+				}
+				head_ = (head_ + copy_amount) % max_size_;
+				full_ = head_ == tail_;
 			}
-			head_ = (head_ + copy_amount) % max_size_;
-			full_ = head_ == tail_;
 
 			if (waiting && size() > pfc::min_t(max_size_ / 2, bitdepth * spec.time_to_samples(BUFFER_BEFORE_PLAYBACK_MS * 0.001) * spec.m_channels / 8))
 			{
@@ -162,7 +161,7 @@ namespace {
 		}
 		void reset()
 		{
-			std::lock_guard<std::mutex> lock(mutex_);
+			std::lock_guard<std::mutex> lock(buffer_mutex_);
 			head_ = tail_;
 			full_ = false;
 			waiting = true;
@@ -187,7 +186,7 @@ namespace {
 		}
 
 	private:
-		std::mutex mutex_;
+		std::mutex buffer_mutex_;
 		std::unique_ptr<BYTE> buf_;
 		size_t head_ = 0;
 		size_t tail_ = 0;
@@ -246,7 +245,7 @@ namespace {
 			DWORD dwUser, DWORD dw1, DWORD dw2)
 		{
 			scream_player* obj = (scream_player*)dwUser;
-			std::lock_guard<std::mutex> lock(obj->mutex_);
+			std::lock_guard<std::mutex> lock(obj->buffer_mutex_);
 			obj->send_frames();
 		}
 
@@ -254,7 +253,7 @@ namespace {
 		{
 			auto now = std::chrono::high_resolution_clock::now();
 			std::chrono::duration<double> elapsed_seconds = now - output_started;
-			size_t frames_target = spec.time_to_samples(elapsed_seconds.count()) * spec.m_channels * bitdepth / 9216 + send_ahead_frames - frames_sent;
+			size_t frames_target = ceil((double)spec.time_to_samples(elapsed_seconds.count()) * spec.m_channels * bitdepth / 9216.0) + send_ahead_frames - frames_sent;
 
 			for (int i = 0; i < frames_target; i++) {
 				BYTE frame[1157] = {};
