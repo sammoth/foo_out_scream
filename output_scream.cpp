@@ -23,7 +23,7 @@
 static const GUID guid_scream_branch = { 0x18564ced, 0x4abf, 0x4f0c, { 0xa4, 0x43, 0x98, 0xda, 0x88, 0xe2, 0xcd, 0x39 } };
 static const GUID guid_cfg_destination_port = { 0xe7598963, 0xed60, 0x4084, { 0xa8, 0x5d, 0xd1, 0xcd, 0xc5, 0x51, 0x22, 0xca } };
 
-static advconfig_branch_factory g_scream_output_branch("Scream Output", guid_scream_branch, advconfig_branch::guid_branch_playback, 0);
+static advconfig_branch_factory g_scream_output_branch("Scream output", guid_scream_branch, advconfig_branch::guid_branch_playback, 0);
 static advconfig_integer_factory cfg_scream_destination_port("Destination port", guid_cfg_destination_port, guid_scream_branch, 0, 4010, 0, 65535, 0);
 
 namespace {
@@ -398,7 +398,7 @@ namespace {
 		}
 		static void g_enum_devices(output_device_enum_callback& p_callback) {
 			const GUID device = { 0x290538b, 0x27da, 0x4ca7, { 0x4a, 0x1b, 0xaf, 0x91, 0x8b, 0xa, 0x15, 0xd0 } };
-			p_callback.on_device(device, "Scream Multicast", 16);
+			p_callback.on_device(device, "Multicast", 9);
 		}
 		static GUID g_get_guid() {
 			//This is our GUID. Generate your own one when reusing this code.
@@ -415,7 +415,7 @@ namespace {
 			return 0;
 		}
 		static void g_advanced_settings_popup(HWND p_parent, POINT p_menupoint) {}
-		static const char* g_get_name() { return "Scream Output"; }
+		static const char* g_get_name() { return "Scream"; }
 	};
 
 	static output_factory_t<output_scream> g_output_sample_factory;
